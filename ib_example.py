@@ -45,10 +45,13 @@ class IBExample(EClient, EWrapper):
             Documentation for this method can be checked online or in the client.py module from the API. """
         self.connect("127.0.0.1", 7496, 0)
 
-        """ run() is inherited from EClient. This method starts the message loop.
+        """ The run() method is inherited from EClient. This method starts the message loop.
             self.run() never returns cause it has an infinite loop inside with the message queue.
-            So it is run inside a thread, otherwise there is no way to continue program execution.
-            Got the idea from: https://qoppac.blogspot.com.uy/2017/03/interactive-brokers-native-python-api.html """
+            One way to continue program execution is to run it inside a thread, like it is done here.
+            Another way is to run the application code inside one of the callbacks of EWrapper, I think this way is
+            how it is intended to be, but the advantage of creating a thread is that it is clearer how to separate
+            application logic with the API logic.
+            Got the thread idea from: https://qoppac.blogspot.com.uy/2017/03/interactive-brokers-native-python-api.html """
         self.message_loop = Thread(target = self.run)
         self.message_loop.start()
 
@@ -60,14 +63,15 @@ class IBExample(EClient, EWrapper):
     def request_market_data(self, ticker):
         req_id = self.get_next_req_id()
         self.req_id_to_stock_ticker_map[req_id] = ticker
-        self.reqMktData(req_id, util.get_stock_contract(ticker), "", False, False, []) # This method belongs to EClient
+        self.reqMktData(req_id, util.get_stock_contract(ticker), "", False, False, [])
 
 
     """ This method belongs to EWrapper. It's a callback method (like all EWrapper methods) that responds to a method call in 
         EClient, in this case, to reqMktData. Here it is being overridden to print the live quotes.
         Remember the usual workflow is to override methods from EWrapper to handle the requests
         made with methods from EClient.
-        This method is called multiple times by the API with different tickTypes, check parameter eplanation below.
+        This method is called multiple times by the API with different tickTypes every time the price change (see
+            parameter eplanation below)
         It receives 4 parameters with the requested information:
         1. reqId: is the request id sent with reqMktData.
         2. tickType: specifies what price is the callback associated with. A tickType of 1 means
